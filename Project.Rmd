@@ -1,0 +1,454 @@
+---
+title: "Exploratory Analysis Of Red-wine Dataset, by Daniel McBride"
+output: html_notebook
+fig_width: 9
+fig_height: 5
+---
+
+This report explores a dataset of characteristics of red wines. The dataset contains 13 characteristics of red wines with 1599 observations. 
+
+A discription of the dataset can be found here:
+https://s3.amazonaws.com/udacity-hosted-downloads/ud651/wineQualityInfo.txt
+
+Dataset Citation:
+P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. 
+Modeling wine preferences by data mining from physicochemical properties.
+In Decision Support Systems, Elsevier, 47(4):547-553. ISSN: 0167-9236.
+
+# Initial Observations
+
+```{r}
+wi <- read.csv('C:/Users/Daniel/Documents/Udacity/EDA/project/wineQualityReds.csv')
+head(wi)
+```
+```{r}
+#Some of these may need to be installed if this is ran on a different machine
+library(GGally)
+library(scales)
+library(memisc)
+library(grid)
+library(gridExtra)
+library(ggplot2)
+library(lattice)
+library(MASS)
+library(scales)
+```
+
+Not knowing much about high-quality wine, I decided to start with plotting each variable against each other, to see which variables correlated the highest with quality
+```{r}
+ggpairs(wi, upper = list(continuous = wrap("cor", size = 2, hjust=0.8)))
+```
+
+From this ggpairs plot it looks like alcohol is the most correlated with quality followed by volatile acidity, then sulfates then citric acid. Since none of these are very highly correlated with quality. It's fair to say that more than one variable must affect the quality of the wine. There must be some symbiotic relationships between the contents of the wine that contribute to higher quality.
+
+# Univariate Analysis
+
+In this section, we'll do a surface level analysis of different variables in our dataset staring with quality.
+```{r}
+summary(wi$quality)
+ggplot(data = wi, aes(x = quality)) +
+  geom_histogram(bins = 6) +
+  scale_x_continuous(breaks = seq(0,10,1))
+```
+
+Here we can see that although quality was measured on a scale from 0 to 10, all observations in our dataset are between 3 and 8. Another thing to notice is that quality ratings are all whole numbers, i.e. any wine ranging from a 4.5 to a 5.49 will be lumped into the same quality bracket 5; quality data this granular, with only 6 brackets to choose from, will limit the percision of our analysis. 
+
+Furthermore, since the quality data is supposed to range from 0 to 10, but we only use 3 through 8, I think it makes sense to transfrom the data from a 0 to 10 scale to a 0 to 5 scale
+
+```{r}
+summary(wi$quality)
+wi$quality = wi$quality-3
+summary(wi$quality)
+```
+
+Plotting our transformed data:
+```{r}
+ggplot(data = wi, aes(x = quality)) +
+  geom_histogram(bins = 6) +
+  scale_x_continuous(breaks = seq(0,5,1))
+```
+
+Now lets look at the distribution of alchohol in the dataset.
+
+```{r}
+summary(wi$alcohol)
+ggplot(data = wi, aes(x = alcohol)) +
+  geom_histogram()
+```
+
+Our alcohol percentage histogram is right-skewed. 
+Let's look at the alcohol percentage in a bit higher resolution.
+
+```{r}
+ggplot(data = wi, aes(x = alcohol)) +
+  geom_histogram(bins = 70) +
+  scale_x_continuous(breaks = seq(8, 15, .5))
+```
+
+Alcohol percentage is pretty spread out. Most of the data seems to be between 9% and 11% with a few outliers with higher ABV. This is suprising to me because I was under the impression that most wines are almost always around 14% ABV.
+
+Next lets look at a box plot of this same data to get a more detailed view.
+
+```{r}
+ggplot(data = wi, aes(x = 1,y = alcohol)) +
+  geom_boxplot() 
+```
+
+Our previous assertation appears to be correct with the first quartile at about 9.5% ABV and the third quartile at about 11.1%. 13.5% ABV is the inner fence with only a few datapoints having higher percentage, including a max of about 14.5%. 
+
+Next lets look at volatile acidity because volatile acidity had the second highest coorelation coefficent with quality.
+
+```{r}
+summary(wi$volatile.acidity)
+ggplot(data = wi, aes(x = volatile.acidity)) +
+  geom_histogram(bins = 60)
+```
+
+Volatile aciditiy seems to have a pretty normal distribution. 
+
+```{r}
+ggplot(data = wi, aes(x = 1,y = volatile.acidity)) +
+  geom_boxplot() 
+```
+
+Similar to alcohol, volatile acidity may have some outliers on the higher end of the spectrum, but none on the lower end.
+
+Continuing analising variables based on cooreleation with quality, the next variable to look at is sulphates.
+
+```{r}
+summary(wi$sulphates)
+ggplot(data = wi, aes(x = sulphates)) +
+  geom_histogram(bins = 70)
+```
+
+The sulphates histogram has a very simalar pattern to the previous two histograms. The sulphates histogram is slightly right-skewed with some possible outliers on the higher end of the specturm. 
+
+```{r}
+ggplot(data = wi, aes(x = 1,y = sulphates)) +
+  geom_boxplot() 
+```
+
+The sulphates data seems to be less condensed than the previous two variables.
+
+The next variable we'll look at is citric acid. 
+
+```{r}
+summary(wi$citric.acid)
+ggplot(data = wi, aes(x = citric.acid)) +
+  geom_histogram(bins = 40)
+```
+
+Citric acid seems to be spread out all over the place. Looks like it's right-skewed, but it's hard to tell. 
+
+```{r}
+ggplot(data = wi, aes(x = 1,y = citric.acid)) +
+  geom_boxplot() 
+```
+
+
+The last single variable we'll look at is density. 
+```{r}
+summary(wi$density)
+ggplot(data = wi, aes(x = density)) +
+  geom_histogram(bins = 40)
+```
+
+Unlike the previous variables we've looked at so far, density  seems to have a very normal distribution and does't seem to be right-skewed at all. 
+
+# Univariate Analysis
+
+### What is the structure of the dataset?
+
+The wine dataset has 13 variables with 1599 observations. The variable we are interested in predicting is quality which is rated on a 0 to 10 scale. Because all the observations of quality lie between 3 and 8, we transformed the qualty variable to a 0 to 5 scale for clarity. Some other variables in the dataset ordered from most coorelated to least coorelated with quality are ABV, volatile acid content, sulfate content, citric acid, and density. Other than density. Alll of these variables tend to have right-skewed distributions with possible outliers on the higher end. None of these variables are highly coorelated with quality so it is likely we will need to look at combinations of variables to make good predictions. 
+
+### What is/are the main feature(s) of interest in your dataset?
+
+The main feature of this dataset is alcohol content. If I want to make a solid predictive model of quality, alcohol content will most-likely be the main contributing factor.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+
+Volatile acidity, sulphates, citric acid, and density.
+
+### Did you create any new variables from existing variables in the dataset?
+
+No, but I did transform the quality variable to a smaller scale for clairity. 
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+None of the distributions seemed out of place. It is midly interesting, however, that all the possible outliers in most of the variables explored were all on the upper-end of the given scale. Not one possible outlier was on the lower-end, although this isn't that suprising because almost all of the distributions were right-skewed.
+
+# Bivariate Plots Section
+
+> **Tip**: Based on what you saw in the univariate plots, what relationships
+between variables might be interesting to look at in this section? Don't limit
+yourself to relationships between a main output feature and one of the
+supporting variables. Try to look at relationships between supporting variables
+as well.
+
+This is where our ggpairs plot should go
+
+
+First lets look at the relationship between alchohol and quality. 
+
+```{r}
+summary(wi$alcohol)
+ggplot(data = wi, aes(x = alcohol, y = quality)) +
+  geom_point()
+```
+
+While it does appear that there is a slight upward trend, with higher quality generally having higher alcohol content, there  is a lot of overlap of the same alcohol content being dispersed across every quality unit. 
+
+Let's take a peek at a simlar graph using volatile acidity instead for alcohol content. 
+
+```{r}
+ggplot(data = wi, aes(x = volatile.acidity, y = quality)) +
+  geom_point(aes(alpha = .005))
+```
+
+volatile acidity vs quality is very similar to alcohol vs quality; however, the trend seems to be in the opposite direction. Quality seems to be negativley coorelated with volatile acidity. Again the data is very noisy in and the same amount of volatile acidity can span every quality bucket, but there does seem to be a trend. This also make sense when we look at the description of volatile acidity in the dataset decription. It says that volatile acididty can give an "unpleasant, vinegar taste"
+
+It is interesting to note that in our ggpairs plot, it does not say the coorelatioin co-efficent between volatile acididty and quality is negative, which I believe it should. 
+
+Next lets look at citric acid vs quality.
+```{r}
+ggplot(data = wi, aes(x = citric.acid, y = quality)) +
+  geom_point(aes(alpha = .005))
+```
+It does appear that there is a slightly positive coorelation between citric acid and wine quality. The lowest quality wines mostly appear to be on the lower end of the citric acid spectrum. whereas the highest quality wines are mostly on the right side of the citric acid spectrum. The middle quality wines are all over the place. 
+
+
+Next let's look at sulphates.
+
+```{r}
+ggplot(data = wi, aes(x = sulphates, y = quality)) +
+  geom_point(aes(alpha = .005))
+```
+
+It looks like there is a slight positive coorelation between quality and sulphates.
+
+Next lets take a look at quality and chlorides.
+
+```{r}
+ggplot(data = wi, aes(x = chlorides, y = quality)) +
+  geom_point(aes(alpha = .005))
+```
+
+Wines with a high amount of chlorides seem to be in the more mediorce range of wines. Other than that quality seems to neither increase nor decrease with more chlorides.
+
+Next I want to look at one of the variables that has a lower coorelation coefficent with quality. For the next plot I picked residual sugar content, because I'm supprised it isn't more coorelated. I assumed more residual sugars would make for a sweeter wine which would be preferental, so let's see what the plot looks like. 
+
+```{r}
+ggplot(data = wi, aes(x = residual.sugar, y = quality)) +
+  geom_point(aes(alpha = .005))
+```
+
+It looks like the sweetest wines are typically in the 2-3 range on quality and the less sweet wines are all across the quality spectrum. 
+
+Next let's look at pH.
+
+```{r}
+ggplot(data = wi, aes(x = pH, y = quality)) +
+  geom_point(aes(alpha = .005))
+```
+
+pH doesn't seem to have any much of a trend when compared with quality. There may be a slight negative coorelatin between the two, but if so, it is very slight. We should be able to see some trends if we compare pH vs the different types of acidity though. Let's check that next.
+
+```{r}
+ggplot(data = wi, aes(x = pH, y = volatile.acidity)) +
+  geom_point(aes(alpha = .005))
+```
+
+```{r}
+ggplot(data = wi, aes(x = pH, y = fixed.acidity)) +
+  geom_point(aes(alpha = .005))
+```
+
+```{r}
+ggplot(data = wi, aes(x = pH, y = citric.acid)) +
+  geom_point(aes(alpha = .005))
+```
+
+All of these graphs, except for the volatile acidity graph, seem to have a slight downward trend which is what we would expect. Let's see what happens when we combine all three acid types into one variable. I combined "volatile acidity", "citric acid" and "fixed acid" into one variable called "total acid". I did this by adding all three acid types together. 
+
+
+```{r echo=FALSE, Bivariate_Plots}
+wi$total.acid = (wi$volatile.acidity + wi$citric.acid + wi$fixed.acidity)
+ggplot(data = wi, aes(x = pH, y = total.acid)) +
+  geom_point(aes(alpha = .005))
+```
+
+Here we can see a very stron coorelation with high total acid content and low pH as we would expcect. This graph is most similar to the fixed acid graph because there were more units of acid in the fixed acid variable which makes it weighted heavier. 
+
+Now that we have a new variable "total acid", let's check it against quality and see if there are any trends. 
+
+```{r echo=FALSE, Bivariate_Plots}
+ggplot(data = wi, aes(y = quality, x = total.acid)) +
+  geom_point(aes(alpha = .005))
+```
+
+
+There doesn't seem to be any coorelation between total acid content and quality. I suppose this makes sense since there is a high coorelation between total acid and pH and a low coorelation between pH and quality, so it would make logical senes that there is a low coorelation between total acid and qualtiy. 
+
+
+Next lets look at sulfer dioxide content and quality.
+```{r echo=FALSE, Bivariate_Plots}
+ggplot(data = wi, aes(y = quality, x = free.sulfur.dioxide)) +
+  geom_point(aes(alpha = .005))
+
+```
+
+```{r echo=FALSE, Bivariate_Plots}
+ggplot(data = wi, aes(y = quality, x = total.sulfur.dioxide)) +
+  geom_point(aes(alpha = .005))
+
+```
+
+SImilar to chlorides, both of the previous graphs show that higher contents of sulfur dioxide seem to be slightly coorelated with mediocre wines (quality 2-3). Other than that, there does not seem to be much coorelation between quality and sulfur dioxide content.
+
+# Bivariate Analysis
+
+> **Tip**: As before, summarize what you found in your bivariate explorations
+here. Use the questions below to guide your discussion.
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+So at first glance, it doesn't seem like most of the variables in the dataset are directly coorelated to quality. The only two variables that had a fairly obvious coorelation with quality were alchohol content and volatile acidity. While these variables did have a noticeable coorelation with quality, I suspect quality can be predicted much better from a combination of variables. 
+
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+
+
+I also did an analysis on pH and acidity. This had a more straightforward relationship obviously, but doing this analysis was helpful to make sure my investigation techniques were correct. 
+
+### What was the strongest relationship you found?
+
+The strongest relationship I found as far as quality is concerned is the relationship between quality and alcohol content. 
+
+# Multivariate Plots Section
+
+> **Tip**: Now it's time to put everything together. Based on what you found in
+the bivariate plots section, create a few multivariate plots to investigate
+more complex interactions between variables. Make sure that the plots that you
+create here are justified by the plots you explored in the previous section. If
+you plan on creating any mathematical models, this is the section where you
+will do that.
+
+
+
+
+Let's plot all three of these variables together to see what shows up.
+```{r}
+ggplot(data = wi, aes(x = volatile.acidity, y = alcohol)) +
+  geom_point(aes(color = quality))
+```
+
+If we split the plot into four quadrents with the center being in the middle of the bulk of the data (about (0.5, 11)), quadrent II seems to be the highest in quality. This makes sense because alcohol is positevly coorelated with quality wherease volatile acidity is negatively coorelated with quality. quadrent IV appears to be the darkest, which also makes sense for the same reasons. 
+
+
+
+
+
+```{r echo=FALSE, Multivariate_Plots}
+
+```
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+### Were there any interesting or surprising interactions between features?
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the \
+strengths and limitations of your model.
+
+------
+
+# Final Plots and Summary
+
+> **Tip**: You've done a lot of exploration and have built up an understanding
+of the structure of and relationships between the variables in your dataset.
+Here, you will select three plots from all of your previous exploration to
+present here as a summary of some of your most interesting findings. Make sure
+that you have refined your selected plots for good titling, axis labels (with
+units), and good aesthetic choices (e.g. color, transparency). After each plot,
+make sure you justify why you chose each plot by describing what it shows.
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+
+```
+
+### Description One
+
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+
+```
+
+### Description Two
+
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+
+```
+
+### Description Three
+
+------
+
+# Reflection
+
+> **Tip**: Here's the final step! Reflect on the exploration you performed and
+the insights you found. What were some of the struggles that you went through?
+What went well? What was surprising? Make sure you include an insight into
+future work that could be done with the dataset.
+
+> **Tip**: Don't forget to remove this, and the other **Tip** sections before
+saving your final work and knitting the final report!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
